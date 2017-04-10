@@ -25,7 +25,7 @@ Label this node as following (choose one inspecting the output of `docker node l
 docker node update --label-add server=on <SERVER_NODE_ID>
 ```
 
-Create go-server service
+Here is how to create `go-server` service:
 
 ```bash
 docker service create \
@@ -49,6 +49,12 @@ docker service create \
 
 ### Start GoCD Agents
 
+It will be assume that `go-agent` service should use docker facilities where it
+is hosted itself. For that it is required to share (i.e. mount) `docker` client
+and its libraries.
+
+And this is how to create `go-agent` service:
+
 ```bash
 docker service create \
   --name go-agent \
@@ -64,3 +70,11 @@ docker service create \
 
 > Mounting docker with some of its dependent libraries might not work
 > specifically in case of your OS/Docker version combination.
+
+Do not forget that in order for the trick of re-using outer docker client to
+work there should be a few thinkgs in place:
+
+1. Docker engine where `go-agent` is going to be running should be started with
+   the following option: `-H unix:///var/run/docker.sock`
+2. `/var/run/docker.sock` file should have appropriate permissions, thus please
+   ensure: `chmod 0666 /var/run/docker.sock`
