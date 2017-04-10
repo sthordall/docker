@@ -49,9 +49,10 @@ docker service create \
 
 ### Start GoCD Agents
 
-It will be assume that `go-agent` service should use docker facilities where it
-is hosted itself. For that it is required to share (i.e. mount) `docker` client
-and its libraries.
+It will be assumed that `go-agent` service should use docker facilities where it
+is hosted itself. For that it is required to share (i.e. mount) docker client
+and its libraries into `go-agent` containers docker client can be used as if
+`go-agent` has docker infrastructure installed in it natively.
 
 And this is how to create `go-agent` service:
 
