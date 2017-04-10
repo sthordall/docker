@@ -72,6 +72,10 @@ docker service create \
 > Mounting docker with some of its dependent libraries might not work
 > specifically in case of your OS/Docker version combination.
 
+> There are different versions of `gocd-agent-*` available, but `ubuntu` flavor
+> was chosen specifically because mounted docker client is most likely to be
+> compatible with it.
+
 Do not forget that in order for the trick of re-using outer docker client to
 work there should be a few thinkgs in place:
 
