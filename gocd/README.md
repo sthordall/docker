@@ -1,5 +1,13 @@
 # Setting up GoCD in Docker Swarm Mode
 
+### Establish overlay network
+
+```bash
+docker network create -d overlay ci
+```
+
+### Start GoCD Server
+
 Choose one node that will run `gocd-server` and create following folders:
 
 ```
@@ -39,7 +47,7 @@ docker service create \
 > that is using `${GID}=65011` and `${UID}=65011` instead of `1000` if it happen
 > to collide with users/groups on your docker host.
 
-Create go-agent service
+### Start GoCD Agents
 
 ```bash
 docker service create \
