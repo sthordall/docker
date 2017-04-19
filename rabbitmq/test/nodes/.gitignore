@@ -1,0 +1,4 @@
+**/*.log
+**/rabbitmq.config
+**/__PORT__
+mnesia/
