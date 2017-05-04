@@ -1,3 +1,6 @@
 [submodule "haskell"]
 	path = haskell
 	url = https://github.com/kuznero/alpine-ghc.git
+[submodule "rabbitmq"]
+	path = rabbitmq
+	url = https://github.com/kuznero/rabbitmq.git
