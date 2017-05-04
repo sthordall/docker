@@ -1,4 +1,4 @@
-FROM rabbitmq:3.6.6-management
+FROM rabbitmq:management
 
 COPY rabbitmq.config /etc/rabbitmq/rabbitmq.config
 RUN chmod 777 /etc/rabbitmq/rabbitmq.config
