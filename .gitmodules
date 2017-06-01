@@ -4,3 +4,6 @@
 [submodule "alpine-ghc"]
 	path = alpine-ghc
 	url = https://github.com/kuznero/alpine-ghc.git
+[submodule "gocd/server"]
+	path = gocd/server
+	url = https://github.com/kuznero/gocd-server.git
