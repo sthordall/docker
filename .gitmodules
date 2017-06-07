@@ -7,3 +7,6 @@
 [submodule "gocd/server"]
 	path = gocd/server
 	url = https://github.com/kuznero/gocd-server.git
+[submodule "elm"]
+	path = elm
+	url = https://github.com/kuznero/elm
