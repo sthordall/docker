@@ -29,7 +29,7 @@ $wgMetaNamespace = "Forex_Core";
 $wgScriptPath = "";
 
 ## The protocol and server name to use in fully-qualified URLs
-$wgServer = "http://127.0.0.1:8080";
+$wgServer = "http://y32816.danskenet.net:8080";
 
 ## The URL path to static resources (images, scripts, etc.)
 $wgResourceBasePath = $wgScriptPath;
