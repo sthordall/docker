@@ -16,4 +16,11 @@ if [ ! -z "$WG_LOGO" ]; then
   sed -i "s/wgLogo = \"\"/wgLogo = \"${WG_LOGO//\//\\\/}\"/" /var/www/html/LocalSettings.php
 fi
 
+if [ ! -f "/var/www/data/wikidb.sqlite" ]; then
+  echo Generating default database files ...
+  cp -vr /var/www/data_init/* /var/www/data
+  chown -R www-data:www-data /var/www/data
+  echo "done."
+fi
+
 docker-php-entrypoint apache2-foreground
