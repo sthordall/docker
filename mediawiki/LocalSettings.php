@@ -18,8 +18,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
 
-$wgSitename = "Forex Core";
-$wgMetaNamespace = "Forex_Core";
+$wgSitename = "";
+$wgMetaNamespace = "";
 
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
@@ -29,14 +29,14 @@ $wgMetaNamespace = "Forex_Core";
 $wgScriptPath = "";
 
 ## The protocol and server name to use in fully-qualified URLs
-$wgServer = "http://y32816.danskenet.net:8080";
+$wgServer = "";
 
 ## The URL path to static resources (images, scripts, etc.)
 $wgResourceBasePath = $wgScriptPath;
 
 ## The URL path to the logo.  Make sure you change this from the default,
 ## or else you'll overwrite your logo when you upgrade!
-$wgLogo = "$wgResourceBasePath/resources/assets/mediawiki.png";
+$wgLogo = "";
 
 ## UPO means: this is also a user preference option
 
