@@ -1,4 +1,4 @@
-# MediaWiki (with Sqlite backend)
+# MediaWiki
 
 ```bash
 mkdir data
