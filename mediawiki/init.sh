@@ -14,7 +14,7 @@ chown -R www-data:www-data /var/www/html/images
 
 if [ ! -f "/var/www/html/images/.htaccess" ]; then
   echo Fixing images ...
-  cp -v /var/www/html/images-init/* /var/www/html/images/
+  cp -v /var/www/html/images-init/.htaccess /var/www/html/images/
   echo "done."
 fi
 
