@@ -1,19 +1,53 @@
-# Postgres 9.6 Dockerized w/ Replication
+# PostgreSQL cluster image w/ replication
 
-Master/Slave Postgres Replication in 30 seconds.
+In order to start test PostgreSQL cluster with 3 nodes (synchronous replication
+between single master and 2 replicas):
 
-  * Quickstart: `docker-compose up`
-  * For production, use docker-compose, Kubernetes, Rancher, Tutum, other PaaS tooling, ... or roll your own.
-  * To see container environment variable requirements, see `docker-compose.yml`.
-  * To demonstrate multiple slaves:
-    * `docker-compose up`
-    * `docker-compose scale pg-slave=3`
+```bash
+$ docker network create -d overlay pgnet
+$ docker service create \
+    --name postgres-1 \
+    --detach \
+    --network pgnet \
+    -e POSTGRES_USER='postgres' \
+    -e POSTGRES_PASSWORD='admin' \
+    -e PG_ACTIVE_SYNC_NUM='1' \
+    -e PG_SERVER_NAME='pg1' \
+    -e PG_SYNC_SERVERS='pg2, pg3' \
+    -e ALLOW_REPLICATION_FROM='10.0.0.1/16' \
+    -e PGDATA='/var/lib/postgresql/data/pgdata' \
+    --mount type=volume,source=pg1,target=/var/lib/postgresql/data/pgdata \
+    -p 5432:5432 \
+    kuznero/postgres:10.0-alpine-cluster
+$ docker service create \
+    --name postgres-2 \
+    --detach \
+    --network pgnet \
+    -e POSTGRES_USER='postgres' \
+    -e POSTGRES_PASSWORD='admin' \
+    -e REPLICATE_FROM='postgres-1' \
+    -e PG_SERVER_NAME='pg2' \
+    -e ALLOW_REPLICATION_FROM='10.0.0.1/16' \
+    -e PGDATA='/var/lib/postgresql/data/pgdata' \
+    --mount type=volume,source=pg2,target=/var/lib/postgresql/data/pgdata \
+    kuznero/postgres:10.0-alpine-cluster
+$ docker service create \
+    --name postgres-3 \
+    --detach \
+    --network pgnet \
+    -e POSTGRES_USER='postgres' \
+    -e POSTGRES_PASSWORD='admin' \
+    -e REPLICATE_FROM='postgres-1' \
+    -e PG_SERVER_NAME='pg3' \
+    -e ALLOW_REPLICATION_FROM='10.0.0.1/16' \
+    -e PGDATA='/var/lib/postgresql/data/pgdata' \
+    --mount type=volume,source=pg3,target=/var/lib/postgresql/data/pgdata \
+    kuznero/postgres:10.0-alpine-cluster
+```
 
-## Notes
-
-   * No additional replication user is setup - the postgres admin user is used. This means the superuser credentials must be identical on the master and all slaves.
-   * setup-replication.sh is only executed when a container's data volume is first initialized.
-   * REPLICATE_FROM environment variable is only used during container initialization - if the master changes after the database has been initialized, you'll need to manually adjust the recovery.conf file in the slave containers' data volume.
-   * Configuration:
-     * PG_MAX_WAL_SENDERS 8 - Maximum number of slaves
-     * PG_WAL_KEEP_SEGMENTS 32 - See http://www.postgresql.org/docs/9.6/static/runtime-config-replication.html
+* `REPLICATE_FROM` is defined for slaves only; it indicates who is the primary node
+* `ALLOW_REPLICATION_FROM` is defined for all nodes (default value is
+  `10.0.0.1/16`); it indicates that any replication requests coming from an IP
+  with this range is allowed, the rest is ignored
+* `PG_MAX_WAL_SENDERS` maximum number of slaves (default: `8`)
+* `PG_WAL_KEEP_SEGMENTS` see [runtime configuration for replication](http://www.postgresql.org/docs/9.6/static/runtime-config-replication.html) (default: `32`)
