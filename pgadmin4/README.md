@@ -15,6 +15,6 @@
 | MAIL_PASSWORD          | password          | NO (IF SERVER_MODE SET FALSE)  |
 
 ```bash
-$ docker run -d -p 5050:5050 -e SERVER_MODE=True kuznero/pgadmin4
-$ docker run -d -p 5050:5050 -e SERVER_MODE=True -v $(pwd)/data:/data kuznero/pgadmin4
+$ docker run -d -p 5050:5050 -e SERVER_MODE=False kuznero/pgadmin4
+$ docker run -d -p 5050:5050 -e SERVER_MODE=False -v $(pwd)/data:/data kuznero/pgadmin4
 ```
