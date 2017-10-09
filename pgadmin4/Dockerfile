@@ -2,7 +2,6 @@ FROM python:2.7-alpine
 
 MAINTAINER Roman Kuznetsov <roman@kuznero.com>
 
-# Metadata
 LABEL org.label-schema.url="https://www.pgadmin.org" \
       org.label-schema.license="PostgreSQL" \
       org.label-schema.name="pgAdmin4" \
@@ -30,7 +29,7 @@ ENV MAIL_USE_SSL  true
 ENV MAIL_USERNAME username
 ENV MAIL_PASSWORD password
 
-COPY LICENSE config_local.py /usr/local/lib/python2.7/site-packages/pgadmin4/
+COPY config_local.py /usr/local/lib/python2.7/site-packages/pgadmin4/
 
 USER pgadmin:pgadmin
 VOLUME /data/
