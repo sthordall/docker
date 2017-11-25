@@ -4,5 +4,5 @@ VOLUME /var/www/data
 VOLUME /var/www/html/images
 ADD init.sh /var/www/html
 ADD images /var/www/html/images-init
-ADD ./extensions/MediaWiki /var/www/html/extensions
+ADD ./extensions /var/www/html/extensions
 ENTRYPOINT ["./init.sh"]
