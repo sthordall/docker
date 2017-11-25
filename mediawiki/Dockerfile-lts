@@ -1,0 +1,8 @@
+FROM mediawiki:lts
+RUN apt-get update && apt-get install -y htmldoc sudo --no-install-recommends && rm -r /var/lib/apt/lists/*
+VOLUME /var/www/data
+VOLUME /var/www/html/images
+ADD init.sh /var/www/html
+ADD images /var/www/html/images-init
+ADD ./extensions/MediaWiki /var/www/html/extensions
+ENTRYPOINT ["./init.sh"]
