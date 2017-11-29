@@ -3,4 +3,6 @@ VOLUME /var/www/data
 VOLUME /var/www/html/images
 ADD init.sh /var/www/html
 ADD images /var/www/html/images-init
+ADD ./extensions /var/www/html/extensions
+RUN chown -R www-data:www-data /var/www/html/extensions && chmod -R 775 /var/www/html/extensions
 ENTRYPOINT ["./init.sh"]
