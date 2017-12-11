@@ -16,11 +16,11 @@ FROM alpine:3.6
 
 MAINTAINER GoCD <go-cd-dev@googlegroups.com>
 
-LABEL gocd.version="17.12.0" \
+LABEL gocd.version="<%= gocd_version %>" \
   description="GoCD server based on alpine linux" \
   maintainer="GoCD <go-cd-dev@googlegroups.com>" \
-  gocd.full.version="17.12.0-5626" \
-  gocd.git.sha="cb7df2ffe421e43f2a682a7a323cb3a3e30734cc"
+  gocd.full.version="<%= gocd_full_version %>" \
+  gocd.git.sha="<%= gocd_git_sha %>"
 
 # the ports that go server runs on
 EXPOSE 8153 8154
@@ -28,8 +28,8 @@ EXPOSE 8153 8154
 # force encoding
 ENV LANG=en_US.utf8
 
-ARG UID=65011
-ARG GID=65011
+ARG UID=1000
+ARG GID=1000
 
 RUN \
 # add our user and group first to make sure their IDs get assigned consistently,
@@ -40,11 +40,11 @@ RUN \
   apk --no-cache upgrade && \
   apk add --no-cache openjdk8-jre-base git mercurial subversion tini openssh-client bash su-exec curl && \
 # download the zip file
-  curl --fail --location --silent --show-error "https://download.gocd.org/binaries/17.12.0-5626/generic/go-server-17.12.0-5626.zip" > /tmp/go-server.zip && \
+  curl --fail --location --silent --show-error "<%= download_url %>" > /tmp/go-server.zip && \
 # unzip the zip file into /go-server, after stripping the first path prefix
   unzip /tmp/go-server.zip -d / && \
   rm /tmp/go-server.zip && \
-  mv go-server-17.12.0 /go-server && \
+  mv go-server-<%= gocd_version %> /go-server && \
   mkdir -p /docker-entrypoint.d
 
 COPY logback-include.xml /go-server/config/logback-include.xml
