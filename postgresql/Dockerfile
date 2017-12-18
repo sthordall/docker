@@ -1,8 +1,5 @@
-FROM postgres:10.0-alpine
-
+FROM postgres:10.1
 ENV PG_MAX_WAL_SENDERS 8
 ENV PG_WAL_KEEP_SEGMENTS 8
-ENV ALLOW_REPLICATION_FROM="10.0.0.1/16"
-COPY setup-replication.sh /docker-entrypoint-initdb.d/
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint-initdb.d/setup-replication.sh /docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh

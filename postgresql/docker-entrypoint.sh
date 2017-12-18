@@ -1,68 +1,88 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
 
-# usage: file_env VAR [DEFAULT]
-#    ie: file_env 'XYZ_DB_PASSWORD' 'example'
-# (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
-#  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
-file_env() {
-	local var="$1"
-	local fileVar="${var}_FILE"
-	local def="${2:-}"
-	if [ "${!var:-}" ] && [ "${!fileVar:-}" ]; then
-		echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
-		exit 1
-	fi
-	local val="$def"
-	if [ "${!var:-}" ]; then
-		val="${!var}"
-	elif [ "${!fileVar:-}" ]; then
-		val="$(< "${!fileVar}")"
-	fi
-	export "$var"="$val"
-	unset "$fileVar"
-}
+if [ -f "${PGDATA}/postgresql.conf" ]; then
+  # Setup replication
+  if [ "x$REPLICATE_FROM" == "x" ]; then
+    echo "+Setting up replication as primary node ... (started)"
+    sed -i '/wal_level/d' ${PGDATA}/postgresql.conf
+    sed -i '/max_wal_senders/d' ${PGDATA}/postgresql.conf
+    sed -i '/wal_keep_segments/d' ${PGDATA}/postgresql.conf
+    sed -i '/hot_standby/d' ${PGDATA}/postgresql.conf
+    cat >> ${PGDATA}/postgresql.conf <<EOF
+wal_level = replica
+max_wal_senders = $PG_MAX_WAL_SENDERS
+wal_keep_segments = $PG_WAL_KEEP_SEGMENTS
+hot_standby = on
+EOF
+    sed -i '/synchronous_standby_names/d' ${PGDATA}/postgresql.conf
+    if [ ! "x$PG_ACTIVE_SYNC_NUM" == "x" ]; then
+      if [ ! "x$PG_SYNC_SERVERS" == "x" ]; then
+        cat >> ${PGDATA}/postgresql.conf <<EOF
+synchronous_standby_names = '${PG_ACTIVE_SYNC_NUM} (${PG_SYNC_SERVERS})'
+EOF
+      fi
+    fi
+  else
+    echo "+Setting up replication as secondary node ... (started)"
+    sed -i '/wal_level/d' ${PGDATA}/postgresql.conf
+    sed -i '/max_wal_senders/d' ${PGDATA}/postgresql.conf
+    sed -i '/wal_keep_segments/d' ${PGDATA}/postgresql.conf
+    sed -i '/hot_standby/d' ${PGDATA}/postgresql.conf
+    cat > ${PGDATA}/recovery.conf <<EOF
+standby_mode = on
+primary_conninfo = 'host=${REPLICATE_FROM} port=5432 user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} application_name=${PG_SERVER_NAME}'
+EOF
+    chown postgres ${PGDATA}/recovery.conf
+    chmod 600 ${PGDATA}/recovery.conf
+  fi
+  echo "+Setting up replication ... (done)"
+fi
+
+# Backwards compatibility for old variable names (deprecated)
+if [ "x$PGUSER"     != "x" ]; then
+    POSTGRES_USER=$PGUSER
+fi
+if [ "x$PGPASSWORD" != "x" ]; then
+    POSTGRES_PASSWORD=$PGPASSWORD
+fi
+
+# Forwards-compatibility for old variable names (pg_basebackup uses them)
+if [ "x$PGPASSWORD" = "x" ]; then
+    export PGPASSWORD=$POSTGRES_PASSWORD
+fi
+
+# Based on official postgres package's entrypoint script (https://hub.docker.com/_/postgres/)
+# Modified to be able to set up a slave. The docker-entrypoint-initdb.d hook provided is inadequate.
+
+set -e
 
 if [ "${1:0:1}" = '-' ]; then
 	set -- postgres "$@"
 fi
 
-# allow the container to be started with `--user`
-if [ "$1" = 'postgres' ] && [ "$(id -u)" = '0' ]; then
-	mkdir -p "$PGDATA"
-	chown -R postgres "$PGDATA"
-	chmod 700 "$PGDATA"
-
-	mkdir -p /var/run/postgresql
-	chown -R postgres /var/run/postgresql
-	chmod 775 /var/run/postgresql
-
-	# Create the transaction log directory before initdb is run (below) so the directory is owned by the correct user
-	if [ "$POSTGRES_INITDB_XLOGDIR" ]; then
-		mkdir -p "$POSTGRES_INITDB_XLOGDIR"
-		chown -R postgres "$POSTGRES_INITDB_XLOGDIR"
-		chmod 700 "$POSTGRES_INITDB_XLOGDIR"
-	fi
-
-	exec su-exec postgres "$BASH_SOURCE" "$@"
-fi
-
 if [ "$1" = 'postgres' ]; then
 	mkdir -p "$PGDATA"
-	chown -R "$(id -u)" "$PGDATA" 2>/dev/null || :
-	chmod 700 "$PGDATA" 2>/dev/null || :
+	chmod 700 "$PGDATA"
+	chown -R postgres "$PGDATA"
+
+	mkdir -p /run/postgresql
+	chmod g+s /run/postgresql
+	chown -R postgres /run/postgresql
 
 	# look specifically for PG_VERSION, as it is expected in the DB dir
 	if [ ! -s "$PGDATA/PG_VERSION" ]; then
-		file_env 'POSTGRES_INITDB_ARGS'
-		if [ "$POSTGRES_INITDB_XLOGDIR" ]; then
-			export POSTGRES_INITDB_ARGS="$POSTGRES_INITDB_ARGS --xlogdir $POSTGRES_INITDB_XLOGDIR"
-		fi
-		eval "initdb --username=postgres $POSTGRES_INITDB_ARGS"
+	    if [ "x$REPLICATE_FROM" == "x" ]; then
+		eval "gosu postgres initdb $POSTGRES_INITDB_ARGS"
+	    else
+            	until gosu postgres pg_basebackup -h ${REPLICATE_FROM} -D ${PGDATA} -U ${POSTGRES_USER} -vP -w
+            	do
+                	echo "Waiting for master to connect..."
+                	sleep 1s
+            	done
+	    fi
 
 		# check password first so we can output the warning before postgres
 		# messes it up
-		file_env 'POSTGRES_PASSWORD'
 		if [ "$POSTGRES_PASSWORD" ]; then
 			pass="PASSWORD '$POSTGRES_PASSWORD'"
 			authMethod=md5
@@ -86,20 +106,20 @@ if [ "$1" = 'postgres' ]; then
 			authMethod=trust
 		fi
 
-		{
-			echo
-			echo "host all all all $authMethod"
-		} >> "$PGDATA/pg_hba.conf"
+		if [ "x$REPLICATE_FROM" == "x" ]; then
 
-		# internal start of server in order to allow set-up using psql-client
+		{ echo; echo "host replication all 0.0.0.0/0 $authMethod"; } | gosu postgres tee -a "$PGDATA/pg_hba.conf" > /dev/null
+		{ echo; echo "host all all 0.0.0.0/0 $authMethod"; } | gosu postgres tee -a "$PGDATA/pg_hba.conf" > /dev/null
+
+		# internal start of server in order to allow set-up using psql-client		
 		# does not listen on external TCP/IP and waits until start finishes
-		PGUSER="${PGUSER:-postgres}" \
-		pg_ctl -D "$PGDATA" \
+		gosu postgres pg_ctl -D "$PGDATA" \
 			-o "-c listen_addresses='localhost'" \
 			-w start
 
-		file_env 'POSTGRES_USER' 'postgres'
-		file_env 'POSTGRES_DB' "$POSTGRES_USER"
+		: ${POSTGRES_USER:=postgres}
+		: ${POSTGRES_DB:=$POSTGRES_USER}
+		export POSTGRES_USER POSTGRES_DB
 
 		psql=( psql -v ON_ERROR_STOP=1 )
 
@@ -119,6 +139,8 @@ if [ "$1" = 'postgres' ]; then
 			$op USER "$POSTGRES_USER" WITH SUPERUSER $pass ;
 		EOSQL
 		echo
+		
+		fi
 
 		psql+=( --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" )
 
@@ -126,20 +148,59 @@ if [ "$1" = 'postgres' ]; then
 		for f in /docker-entrypoint-initdb.d/*; do
 			case "$f" in
 				*.sh)     echo "$0: running $f"; . "$f" ;;
-				*.sql)    echo "$0: running $f"; "${psql[@]}" -f "$f"; echo ;;
+				*.sql)    echo "$0: running $f"; "${psql[@]}" < "$f"; echo ;;
 				*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | "${psql[@]}"; echo ;;
 				*)        echo "$0: ignoring $f" ;;
 			esac
 			echo
 		done
 
-		PGUSER="${PGUSER:-postgres}" \
-		pg_ctl -D "$PGDATA" -m fast -w stop
+	if [ "x$REPLICATE_FROM" == "x" ]; then
+		gosu postgres pg_ctl -D "$PGDATA" -m fast -w stop
+	fi
 
 		echo
 		echo 'PostgreSQL init process complete; ready for start up.'
 		echo
 	fi
+
+# Setup replication
+if [ "x$REPLICATE_FROM" == "x" ]; then
+  echo "-Setting up replication as primary node ... (started)"
+  sed -i '/wal_level/d' ${PGDATA}/postgresql.conf
+  sed -i '/max_wal_senders/d' ${PGDATA}/postgresql.conf
+  sed -i '/wal_keep_segments/d' ${PGDATA}/postgresql.conf
+  sed -i '/hot_standby/d' ${PGDATA}/postgresql.conf
+  cat >> ${PGDATA}/postgresql.conf <<EOF
+wal_level = replica
+max_wal_senders = $PG_MAX_WAL_SENDERS
+wal_keep_segments = $PG_WAL_KEEP_SEGMENTS
+hot_standby = on
+EOF
+  sed -i '/synchronous_standby_names/d' ${PGDATA}/postgresql.conf
+  if [ ! "x$PG_ACTIVE_SYNC_NUM" == "x" ]; then
+    if [ ! "x$PG_SYNC_SERVERS" == "x" ]; then
+      cat >> ${PGDATA}/postgresql.conf <<EOF
+synchronous_standby_names = '${PG_ACTIVE_SYNC_NUM} (${PG_SYNC_SERVERS})'
+EOF
+    fi
+  fi
+else
+  echo "-Setting up replication as secondary node ... (started)"
+  sed -i '/wal_level/d' ${PGDATA}/postgresql.conf
+  sed -i '/max_wal_senders/d' ${PGDATA}/postgresql.conf
+  sed -i '/wal_keep_segments/d' ${PGDATA}/postgresql.conf
+  sed -i '/hot_standby/d' ${PGDATA}/postgresql.conf
+  cat > ${PGDATA}/recovery.conf <<EOF
+standby_mode = on
+primary_conninfo = 'host=${REPLICATE_FROM} port=5432 user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} application_name=${PG_SERVER_NAME}'
+EOF
+  chown postgres ${PGDATA}/recovery.conf
+  chmod 600 ${PGDATA}/recovery.conf
+fi
+echo "-Setting up replication ... (done)"
+
+	exec gosu postgres "$@"
 fi
 
 exec "$@"

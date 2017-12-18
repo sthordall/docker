@@ -1,0 +1,74 @@
+version: "3.4"
+services:
+
+  postgres-1:
+    image: postgres-replication
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      PG_ACTIVE_SYNC_NUM: 1
+      PG_SYNC_SERVERS: "pg2, pg3"
+    hostname: "postgres-1"
+    networks:
+      - pgnet
+    volumes:
+      - type: volume
+        source: pg1
+        target: /var/lib/postgresql/data
+        read_only: false
+    deploy:
+      labels:
+        pipeline.kind: "infra"
+
+  postgres-2:
+    image: postgres-replication
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      REPLICATE_FROM: "postgres-1"
+      PG_SERVER_NAME: "pg2"
+    hostname: "postgres-2"
+    networks:
+      - pgnet
+    volumes:
+      - type: volume
+        source: pg2
+        target: /var/lib/postgresql/data
+        read_only: false
+    depends_on:
+      - postgres-1
+    deploy:
+      labels:
+        pipeline.kind: "infra"
+
+  postgres-3:
+    image: postgres-replication
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      REPLICATE_FROM: "postgres-1"
+      PG_SERVER_NAME: "pg3"
+    hostname: "postgres-3"
+    networks:
+      - pgnet
+    volumes:
+      - type: volume
+        source: pg3
+        target: /var/lib/postgresql/data
+        read_only: false
+    depends_on:
+      - postgres-1
+    deploy:
+      labels:
+        pipeline.kind: "infra"
+
+networks:
+  pgnet:
+    driver: overlay
+
+volumes:
+  pg1:
+  pg2:
+  pg3:
